@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Simple Mic Recorder</title>
+    <style>
+      body {
+        background: #0f172a;
+        color: #e6eef8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        font-family: Arial;
+      }
+      #micBtn {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+        background: #ef4444;
+        font-size: 34px;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #micBtn.on {
+        background: #0ea5a9;
+      }
+    </style>
+  </head>
+
+  <body>
+    <button id="micBtn">🎤</button>
+
+    <script>
+      let stream = null;
+      let recorder = null;
+      let chunks = [];
+
+      const micBtn = document.getElementById("micBtn");
+
+      micBtn.addEventListener("click", async () => {
+        if (!stream) {
+          startRecording();
+        } else {
+          stopRecording();
+        }
+      });
+
+      async function startRecording() {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        recorder = new MediaRecorder(stream);
+        chunks = [];
+
+        recorder.ondataavailable = (e) => chunks.push(e.data);
+
+        recorder.onstop = async () => {
+          const blob = new Blob(chunks, { type: "audio/webm" });
+
+          const formData = new FormData();
+          formData.append("file", blob, "voice.webm");
+
+          try {
+            const res = await fetch("http://localhost:1611/audiofromClinet", {
+              method: "POST",
+              body: formData,
+            });
+
+            console.log("Uploaded:", await res.text());
+          } catch (err) {
+            console.error("Upload failed", err);
+          }
+        };
+
+        recorder.start();
+        micBtn.classList.add("on");
+      }
+
+      function stopRecording() {
+        recorder.stop();
+        stream.getTracks().forEach((t) => t.stop());
+        stream = null;
+
+        micBtn.classList.remove("on");
+      }
+
+      function blobToBase64(blob) {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result.split(",")[1]);
+          reader.readAsDataURL(blob);
+        });
+      }
+    </script>
+  </body>
+</html>
